@@ -112,7 +112,7 @@ Abgeleitete Werte (im Frontend berechnen): Laufzeit in Sekunden = `erstelltAm` m
 
 ## Projektstand (Stand 22. Juli 2026)
 
-Erledigt (Phasen 0 bis 4):
+Erledigt (Phasen 0 bis 6):
 
 - Phase 0: Next.js 15.5.21 (App Router, TypeScript strict, Turbopack), Tailwind v4, shadcn/ui (CLI 4.x, Preset radix-nova) mit card, button, input, textarea, badge, tabs, sheet, tooltip; zod v4, react-hook-form, @hookform/resolvers 5.x, swr, framer-motion, sonner. `.env.example` committet, `.env.local` mit `USE_MOCK=1` lokal.
 - Phase 1: Design-Tokens komplett in `app/globals.css`, Inter via next/font (Variable `--font-sans`), Dark Mode als Default (`<html lang="de" class="dark">`), Header mit Wortmarke und Tabs in `components/studio-shell.tsx`.
@@ -120,10 +120,13 @@ Erledigt (Phasen 0 bis 4):
 - Verifikation Phasen 0 bis 2: curl-Tests auf `POST /api/briefing` (200 mit RunID im Format, 400 bei ungültiger ISIN und bei kaputtem JSON), Compliance-Greps (console.log, Gedankenstriche, NEXT_PUBLIC, Secret-Namen im Client-Bundle) alle sauber.
 - Phase 3: `lib/mock.ts` (18 realistische Einträge, 11 BEREIT, 4 REVIEW_NOETIG, 3 FEHLER, Export `holeMockFeed()`), `GET /api/feed` mit USE_MOCK-Zweig und n8n-Proxy (Header X-EI-Token, Fehler-Mapping auf deutsche Sätze, neueste zuerst, Kappung auf 200, Einzelzeilen-Validierung via `feedItemSchema`), Proxy-Zweig in `POST /api/briefing`. Fehlerpfade getestet: 502 bei unerreichbarem n8n, 500 bei fehlender Konfiguration, Mock-Feed byte-stabil zwischen Requests.
 - Phase 4: `lib/feed-berechnungen.ts` (Laufzeit aus RunID-Zeitstempel und erstelltAm, Stats, deutsche Zeitformatierung, alles Europe/Berlin), `components/feed/` mit `feed-ansicht.tsx` (SWR, Polling 30 s, Lade-, Fehler-, Leer-Zustand), `stat-karten.tsx` (Gesamt, Diese Woche mit "davon heute", Status-Verteilung als Mini-Balken, Durchschnittslaufzeit), `feed-liste.tsx`, `feed-drawer.tsx` (Sheet mit allen 13 Feldern), `status-badge.tsx`; `feed-platzhalter.tsx` gelöscht, `studio-shell.tsx` rendert `FeedAnsicht`.
+- Phase 5: Lauf-Modus komplett. `components/briefing/lauf-modus.tsx` (RunID-Zeile mit Kopier-Button und sonner-Bestätigung, Stepper Angenommen / In Arbeit / Fertig mit Puls auf dem aktiven Schritt, Sekundenticker "Läuft seit", Ergebnisblock mit StatusBadge, Kicker- und Title-Vorschau, fehler-Text bei FEHLER, Erfolgsmoment bei BEREIT, Hinweis nach 10 Minuten ohne Ergebnis); Lauf-State (`runId`, `gestartetAm`) lebt in `briefing-formular.tsx` und überlebt Tab-Wechsel dank forceMount; Aktionen "Neues Briefing" (reset plus Fokus auf Thema) und "Zum Feed" (Prop `onZumFeed` von `studio-shell.tsx`). Mock-Registry in `lib/mock.ts`: `registriereMockLauf()` schreibt in ein globalThis-Singleton, `holeMockFeed()` mischt fertige Läufe dazu, Items erscheinen 60 bis 90 Sekunden nach Submit (deterministisch aus RunID-Hash), mit Redakteurskurs als BEREIT, ohne als REVIEW_NOETIG mit Kurs-Marker; Felder plausibel aus dem Briefing abgeleitet (Title und Teaser aus Thema, Kicker aus Schwerpunkt, SEO-Titel ohne Namensverdopplung).
+- Phase 6: Duplikat-Hinweis am ISIN-Feld in `isin-feld.tsx` (heutige Feed-Items zur eingegebenen ISIN über den geteilten SWR-Cache und `berlinerDatum()`, dezenter Hinweis, kein Blocker). Feinschliff-Durchgang: Fade-in nur auf Ansichts-Ebene (nichts triggert bei Feed-Polls neu), aria-Attribute (Stepper als `ol` mit `aria-current="step"`, Live-Region `role="status"` im Lauf-Modus, `role="img"` am ISIN-Haken), Fokus-Management (nach Submit auf die Lauf-Modus-Überschrift, nach "Neues Briefing" auf das Thema-Feld), Textkonsistenz-Greps (Gedankenstriche, Ausrufezeichen, console.log) sauber.
+- Verifikation Phasen 5 und 6: curl-Tests gegen den Dev-Server mit `USE_MOCK=1`: POST liefert RunID, das Item ist unmittelbar danach nicht im Feed, nach gut 90 Sekunden erscheint es mit korrektem Status (mit Kurs BEREIT und confidence hoch, ohne Kurs REVIEW_NOETIG mit Kurs-Platzhalter und restFindings), Laufzeit aus RunID und erstelltAm im 60-bis-90-Sekunden-Fenster.
 
 `npm run build` und `npx eslint .` laufen fehlerfrei, alles funktioniert mit `USE_MOCK=1` ohne Netzwerkzugriff auf n8n.
 
-Offen: Phase 5 (Lauf-Modus), Phase 6 (Feinschliff, unter anderem Duplikat-Hinweis im Formular), Phase 7 (n8n-Anschluss).
+Offen: Phase 7 (n8n-Anschluss).
 
 ### Technische Notizen für Folge-Sessions
 

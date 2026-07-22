@@ -1,4 +1,4 @@
-import type { FeedItem, FeedStatus } from "@/lib/schema";
+import type { BriefingDaten, FeedItem, FeedStatus } from "@/lib/schema";
 import { erzeugeRunId } from "@/lib/runid";
 
 // Mock-Daten fuer USE_MOCK=1. Nur serverseitig verwenden (Route Handler),
@@ -295,8 +295,102 @@ const mockFeed: FeedItem[] = (() => {
   return vorlagen.map((vorlage) => baueItem(vorlage, jetzt));
 })();
 
-// Funktion statt Konstante: Phase 5 mischt hier spaeter eingereichte Briefings aus einer
-// In-Memory-Registry dazu. Flache Kopie, damit sort() beim Aufrufer nichts mutiert.
+// ---- Registry eingereichter Briefings (Phase 5) ----
+// Als globalThis-Singleton, weil HMR im Dev-Server getrennte Modulgraphen je Route
+// erzeugen kann; ein Objekt im Modul-Scope waere dann nicht zwischen den Routen geteilt.
+
+type RegistrierterLauf = {
+  // Unix-Millis, ab denen der Lauf im Feed auftaucht
+  fertigAb: number;
+  item: FeedItem;
+};
+
+const REGISTRY_SCHLUESSEL = "__eiStudioMockLaeufe";
+
+function holeRegistry(): Map<string, RegistrierterLauf> {
+  const ablage = globalThis as typeof globalThis & {
+    [REGISTRY_SCHLUESSEL]?: Map<string, RegistrierterLauf>;
+  };
+  ablage[REGISTRY_SCHLUESSEL] ??= new Map();
+  return ablage[REGISTRY_SCHLUESSEL];
+}
+
+// Deterministische Mock-Laufzeit 60 bis 90 Sekunden aus der RunID, stabil je Lauf
+function mockLaufzeitMs(runId: string): number {
+  let hash = 0;
+  for (let i = 0; i < runId.length; i++) {
+    hash = (hash * 31 + runId.charCodeAt(i)) % 9973;
+  }
+  return (60 + (hash % 31)) * 1000;
+}
+
+function ersterSatz(text: string): string {
+  const bereinigt = text.trim().replace(/\s+/g, " ");
+  // Mindestens 20 Zeichen vor dem Satzende, sonst schneiden Abkuerzungen wie "z. B." zu frueh
+  const treffer = bereinigt.match(/^.{20,}?[.!?](?=\s|$)/);
+  const satz = treffer ? treffer[0] : bereinigt;
+  return satz.replace(/[.!?]+$/, "").trim();
+}
+
+function kappeAnWortgrenze(text: string, maxZeichen: number): string {
+  if (text.length <= maxZeichen) return text;
+  const geschnitten = text.slice(0, maxZeichen);
+  const schnitt = geschnitten.lastIndexOf(" ");
+  const basis = schnitt > maxZeichen / 2 ? geschnitten.slice(0, schnitt) : geschnitten;
+  return `${basis.replace(/[\s,;:]+$/, "")} …`;
+}
+
+function grossAmAnfang(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// Der Mock-Zweig von POST /api/briefing registriert hier den Lauf. Das Item erscheint
+// nach 60 bis 90 Sekunden im Feed, Felder plausibel aus dem Briefing abgeleitet:
+// mit Redakteurskurs direkt BEREIT, ohne Kurs REVIEW_NOETIG mit Kurs-Platzhalter
+// (passend zum Hinweis-Chip im Formular).
+export function registriereMockLauf(briefing: BriefingDaten, runId: string): void {
+  const fertigAb = Date.now() + mockLaufzeitMs(runId);
+  const mitKurs = briefing.redakteurskurs.trim().length > 0;
+  const titelBasis = grossAmAnfang(ersterSatz(briefing.thema));
+  const teaserBasis = kappeAnWortgrenze(briefing.thema.trim().replace(/\s+/g, " "), 200);
+  // Beginnt das Thema mit dem Aktiennamen, den Namen im SEO-Titel nicht verdoppeln
+  const seoKern = titelBasis.toLowerCase().startsWith(briefing.hauptName.toLowerCase())
+    ? titelBasis.slice(briefing.hauptName.length).replace(/^[\s:,]+/, "")
+    : titelBasis;
+
+  const item: FeedItem = {
+    runId,
+    erstelltAm: new Date(fertigAb).toISOString(),
+    status: mitKurs ? "BEREIT" : "REVIEW_NOETIG",
+    hauptaktie: briefing.hauptName,
+    isin: briefing.hauptIsin,
+    kicker: kappeAnWortgrenze(grossAmAnfang(briefing.schwerpunkt.trim()), 60),
+    title: kappeAnWortgrenze(titelBasis, 110),
+    seoTitle: kappeAnWortgrenze(
+      seoKern.length > 0
+        ? `${briefing.hauptName} Aktie: ${grossAmAnfang(seoKern)}`
+        : `${briefing.hauptName} Aktie: ${titelBasis}`,
+      90
+    ),
+    teaser: /[.!?…]$/.test(teaserBasis) ? teaserBasis : `${teaserBasis}.`,
+    offeneMarker: mitKurs ? "" : "[Kurs einsetzen: Wert, Währung, Börsenplatz, Datum/Uhrzeit]",
+    restFindings: mitKurs ? "" : "Redakteurskurs fehlt, Kursangabe vor der Freigabe ergänzen",
+    confidence: mitKurs ? "hoch" : "mittel",
+    fehler: "",
+  };
+
+  holeRegistry().set(runId, { fertigAb, item });
+}
+
+// Statische Beispiele plus fertige Laeufe aus der Registry. Flache Kopien,
+// damit sort() und Mutationen beim Aufrufer nichts an den Quellen aendern.
 export function holeMockFeed(): FeedItem[] {
-  return [...mockFeed];
+  const jetzt = Date.now();
+  const fertigeLaeufe: FeedItem[] = [];
+  for (const lauf of holeRegistry().values()) {
+    if (lauf.fertigAb <= jetzt) {
+      fertigeLaeufe.push({ ...lauf.item });
+    }
+  }
+  return [...mockFeed, ...fertigeLaeufe];
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { FormProvider, useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
@@ -15,8 +16,14 @@ import { PresetChips } from "@/components/briefing/preset-chips";
 import { ArtikeltypAuswahl } from "@/components/briefing/artikeltyp-auswahl";
 import { IsinFeld } from "@/components/briefing/isin-feld";
 import { MehrOptionen } from "@/components/briefing/mehr-optionen";
+import { LaufModus } from "@/components/briefing/lauf-modus";
 
-export function BriefingFormular() {
+// Nach erfolgreichem Submit wechselt der Tab in den Lauf-Modus. Der State lebt hier,
+// nicht in der Shell: die TabsContent sind forceMounted, er ueberlebt den Tab-Wechsel.
+type Lauf = { runId: string; gestartetAm: number };
+
+export function BriefingFormular({ onZumFeed }: { onZumFeed: () => void }) {
+  const [lauf, setLauf] = useState<Lauf | null>(null);
   const form = useForm<BriefingInput, unknown, BriefingDaten>({
     resolver: zodResolver(briefingSchema),
     defaultValues: {
@@ -59,13 +66,30 @@ export function BriefingFormular() {
     }
 
     if (antwort.ok) {
-      toast.success("Briefing angenommen", {
-        description: `RunID: ${antwort.runId}`,
-      });
+      toast.success("Briefing angenommen");
+      setLauf({ runId: antwort.runId, gestartetAm: Date.now() });
     } else {
       toast.error(antwort.fehler);
     }
   };
+
+  const neuesBriefing = () => {
+    form.reset();
+    setLauf(null);
+    // Nach dem Re-Render zurueck ins erste Feld
+    requestAnimationFrame(() => form.setFocus("thema"));
+  };
+
+  if (lauf) {
+    return (
+      <LaufModus
+        runId={lauf.runId}
+        gestartetAm={lauf.gestartetAm}
+        onNeuesBriefing={neuesBriefing}
+        onZumFeed={onZumFeed}
+      />
+    );
+  }
 
   return (
     <motion.div

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { briefingSchema, type BriefingAntwort } from "@/lib/schema";
 import { erzeugeRunId } from "@/lib/runid";
+import { registriereMockLauf } from "@/lib/mock";
 
 // POST /api/briefing: USE_MOCK=1 antwortet als Mock, sonst Proxy zum n8n-Intake-Webhook
 // (N8N_BRIEFING_URL, Header X-EI-Token aus EI_TOKEN). Fehler immer als deutscher Satz.
@@ -29,7 +30,10 @@ export async function POST(request: Request): Promise<NextResponse<BriefingAntwo
   if (process.env.USE_MOCK === "1") {
     // Kurze kuenstliche Latenz, damit sich der Mock wie ein echter Aufruf anfuehlt
     await new Promise((resolve) => setTimeout(resolve, 500));
-    return NextResponse.json({ ok: true, runId: erzeugeRunId(ergebnis.data.hauptIsin) });
+    const runId = erzeugeRunId(ergebnis.data.hauptIsin);
+    // Der Lauf taucht nach 60 bis 90 Sekunden im Mock-Feed auf (Phase 5, Lauf-Modus)
+    registriereMockLauf(ergebnis.data, runId);
+    return NextResponse.json({ ok: true, runId });
   }
 
   const url = process.env.N8N_BRIEFING_URL;

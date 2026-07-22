@@ -1,8 +1,12 @@
 "use client";
 
-import { Controller, useFormContext } from "react-hook-form";
-import { Check } from "lucide-react";
+import { useMemo } from "react";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
+import useSWR from "swr";
+import { Check, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { feedFetcher } from "@/lib/feed-fetcher";
+import { berlinerDatum } from "@/lib/feed-berechnungen";
 import { ISIN_REGEX, type BriefingInput } from "@/lib/schema";
 
 export function IsinFeld() {
@@ -11,6 +15,21 @@ export function IsinFeld() {
     control,
     formState: { errors },
   } = useFormContext<BriefingInput>();
+
+  // Duplikat-Hinweis: gleicher SWR-Key wie die Feed-Ansicht, also kein zusaetzlicher
+  // Endpoint und meist ein warmer Cache. Kein eigenes Polling noetig.
+  const { data: feedItems } = useSWR("/api/feed", feedFetcher);
+  const isinWert = useWatch({ control, name: "hauptIsin" }) ?? "";
+
+  const heutigesDuplikat = useMemo(() => {
+    if (!feedItems || !ISIN_REGEX.test(isinWert)) return null;
+    const heute = berlinerDatum(new Date());
+    return (
+      feedItems.find(
+        (item) => item.isin === isinWert && berlinerDatum(new Date(item.erstelltAm)) === heute
+      ) ?? null
+    );
+  }, [feedItems, isinWert]);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -55,6 +74,7 @@ export function IsinFeld() {
                 {gueltig && (
                   <Check
                     className="absolute top-1/2 right-3 size-4 -translate-y-1/2 text-status-bereit"
+                    role="img"
                     aria-label="ISIN gültig"
                   />
                 )}
@@ -63,6 +83,16 @@ export function IsinFeld() {
           }}
         />
         {errors.hauptIsin && <p className="text-sm text-destructive">Keine gültige ISIN</p>}
+        {/* Kein Blocker, Absenden bleibt moeglich */}
+        {heutigesDuplikat && !errors.hauptIsin && (
+          <p role="status" className="flex items-start gap-1.5 text-xs text-status-review">
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            <span>
+              Zu dieser ISIN gibt es heute schon einen Artikel im Feed ({heutigesDuplikat.hauptaktie}).
+              Absenden ist trotzdem möglich.
+            </span>
+          </p>
+        )}
       </div>
     </div>
   );

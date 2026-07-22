@@ -5,27 +5,13 @@ import useSWR from "swr";
 import { motion } from "framer-motion";
 import { Inbox, TriangleAlert } from "lucide-react";
 
-import type { FeedAntwort, FeedItem } from "@/lib/schema";
+import type { FeedItem } from "@/lib/schema";
+import { feedFetcher } from "@/lib/feed-fetcher";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatKarten } from "@/components/feed/stat-karten";
 import { FeedListe } from "@/components/feed/feed-liste";
 import { FeedDrawer } from "@/components/feed/feed-drawer";
-
-async function feedFetcher(url: string): Promise<FeedItem[]> {
-  const res = await fetch(url);
-  const daten: unknown = await res.json().catch(() => null);
-  if (!res.ok) {
-    const fehler =
-      typeof daten === "object" &&
-      daten !== null &&
-      typeof (daten as { fehler?: unknown }).fehler === "string"
-        ? (daten as { fehler: string }).fehler
-        : "Der Feed konnte nicht geladen werden, in einer Minute erneut versuchen";
-    throw new Error(fehler);
-  }
-  return (daten as FeedAntwort).items;
-}
 
 function LadeAnsicht() {
   return (

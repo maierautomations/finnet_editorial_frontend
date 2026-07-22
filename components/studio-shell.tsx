@@ -30,7 +30,7 @@ export function StudioShell() {
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
         <TabsContent value="briefing" forceMount className="data-[state=inactive]:hidden">
-          <BriefingFormular />
+          <BriefingFormular onZumFeed={() => setTab("feed")} />
         </TabsContent>
         <TabsContent value="feed" forceMount className="data-[state=inactive]:hidden">
           <FeedAnsicht />
