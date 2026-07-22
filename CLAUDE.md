@@ -112,15 +112,18 @@ Abgeleitete Werte (im Frontend berechnen): Laufzeit in Sekunden = `erstelltAm` m
 
 ## Projektstand (Stand 22. Juli 2026)
 
-Erledigt (Phasen 0 bis 2):
+Erledigt (Phasen 0 bis 4):
 
 - Phase 0: Next.js 15.5.21 (App Router, TypeScript strict, Turbopack), Tailwind v4, shadcn/ui (CLI 4.x, Preset radix-nova) mit card, button, input, textarea, badge, tabs, sheet, tooltip; zod v4, react-hook-form, @hookform/resolvers 5.x, swr, framer-motion, sonner. `.env.example` committet, `.env.local` mit `USE_MOCK=1` lokal.
 - Phase 1: Design-Tokens komplett in `app/globals.css`, Inter via next/font (Variable `--font-sans`), Dark Mode als Default (`<html lang="de" class="dark">`), Header mit Wortmarke und Tabs in `components/studio-shell.tsx`.
-- Phase 2: Briefing-Formular komplett (`components/briefing/`), Preset-Chips, Artikeltyp-Karten, ISIN-Live-Validierung mit grünem Haken, Zeichenzähler, Optionalblock "Mehr Optionen", Ziellänge-Segmented-Control; `POST /api/briefing` als Mock (zod-Validierung, RunID via `lib/runid.ts`). Feed-Tab zeigt einen Platzhalter.
+- Phase 2: Briefing-Formular komplett (`components/briefing/`), Preset-Chips, Artikeltyp-Karten, ISIN-Live-Validierung mit grünem Haken, Zeichenzähler, Optionalblock "Mehr Optionen", Ziellänge-Segmented-Control; `POST /api/briefing` als Mock (zod-Validierung, RunID via `lib/runid.ts`).
+- Verifikation Phasen 0 bis 2: curl-Tests auf `POST /api/briefing` (200 mit RunID im Format, 400 bei ungültiger ISIN und bei kaputtem JSON), Compliance-Greps (console.log, Gedankenstriche, NEXT_PUBLIC, Secret-Namen im Client-Bundle) alle sauber.
+- Phase 3: `lib/mock.ts` (18 realistische Einträge, 11 BEREIT, 4 REVIEW_NOETIG, 3 FEHLER, Export `holeMockFeed()`), `GET /api/feed` mit USE_MOCK-Zweig und n8n-Proxy (Header X-EI-Token, Fehler-Mapping auf deutsche Sätze, neueste zuerst, Kappung auf 200, Einzelzeilen-Validierung via `feedItemSchema`), Proxy-Zweig in `POST /api/briefing`. Fehlerpfade getestet: 502 bei unerreichbarem n8n, 500 bei fehlender Konfiguration, Mock-Feed byte-stabil zwischen Requests.
+- Phase 4: `lib/feed-berechnungen.ts` (Laufzeit aus RunID-Zeitstempel und erstelltAm, Stats, deutsche Zeitformatierung, alles Europe/Berlin), `components/feed/` mit `feed-ansicht.tsx` (SWR, Polling 30 s, Lade-, Fehler-, Leer-Zustand), `stat-karten.tsx` (Gesamt, Diese Woche mit "davon heute", Status-Verteilung als Mini-Balken, Durchschnittslaufzeit), `feed-liste.tsx`, `feed-drawer.tsx` (Sheet mit allen 13 Feldern), `status-badge.tsx`; `feed-platzhalter.tsx` gelöscht, `studio-shell.tsx` rendert `FeedAnsicht`.
 
-`npm run build` läuft fehlerfrei. Die manuelle Verifikation (curl-Tests, UI-Durchlauf, Sprachregel-Greps) steht noch aus und ist der erste Schritt der nächsten Session.
+`npm run build` und `npx eslint .` laufen fehlerfrei, alles funktioniert mit `USE_MOCK=1` ohne Netzwerkzugriff auf n8n.
 
-Offen: Phase 3 (beide Routen mit USE_MOCK-Zweig und n8n-Proxy, `lib/mock.ts`, `GET /api/feed`), Phase 4 (Feed und Stats), Phase 5 (Lauf-Modus), Phase 6 (Feinschliff), Phase 7 (n8n-Anschluss).
+Offen: Phase 5 (Lauf-Modus), Phase 6 (Feinschliff, unter anderem Duplikat-Hinweis im Formular), Phase 7 (n8n-Anschluss).
 
 ### Technische Notizen für Folge-Sessions
 
@@ -132,3 +135,9 @@ Offen: Phase 3 (beide Routen mit USE_MOCK-Zweig und n8n-Proxy, `lib/mock.ts`, `G
 - RunID: `erzeugeRunId(isin)` in `lib/runid.ts`, Intl.DateTimeFormat mit timeZone Europe/Berlin und hourCycle h23, nur serverseitig verwenden.
 - `.gitignore`: `.env*` ist ignoriert, `.env.example` per `!.env.example` freigestellt. Der n8n-Workflow-Export (JSON im Root) bleibt bewusst unversioniert.
 - Feld-Fehlertexte: das zod-Schema bleibt exakt wie im API-Vertrag, deutsche Fehlertexte für Felder ohne eigene Schema-Message (schwerpunkt, hauptName, artikeltyp) werden im Formular selbst gerendert.
+- Mock-Feed: `holeMockFeed()` in `lib/mock.ts` liefert flache Kopien, Zeiten und RunIDs entstehen einmal pro Serverprozess beim Modul-Load und bleiben zwischen Requests stabil. Die Phase-5-Registry eingereichter Briefings (Briefing-Route schreibt, Feed-Route liest) wegen HMR und getrennter Dev-Modulgraphen als globalThis-Singleton bauen.
+- `lib/feed-berechnungen.ts` ist client-tauglich: Laufzeit über den Wanduhr-als-UTC-Trick (RunID-Präfix und erstelltAm beide als Berliner Wanduhr lesen, Differenz rechnen als wäre es UTC), Guard 0 bis 21600 Sekunden, sonst null und aus dem Durchschnitt ausgeschlossen. `berlinerDatum()` für den Duplikat-Hinweis in Phase 6 wiederverwenden. Der Intl-Formatter nutzt exakt dieselben Optionen wie `lib/runid.ts`.
+- `StatusBadge` in `components/feed/status-badge.tsx` ist die geteilte Statusanzeige (Mapping REVIEW_NOETIG auf Anzeige "REVIEW NÖTIG"), auch für den Lauf-Modus in Phase 5 verwenden.
+- SWR: den Key "/api/feed" in Phase 5 wiederverwenden (geteilter Cache und `mutate`, abweichendes `refreshInterval` je Hook erlaubt, Lauf-Modus pollt alle 20 s). Das Feed-Polling läuft auch weiter, während der Briefing-Tab aktiv ist (SWR pausiert nur bei verstecktem Browser-Tab), das ist gewollt: Daten sind beim Tab-Wechsel warm.
+- `GET /api/feed` hat `export const dynamic = "force-dynamic"` als expliziten Guard (seit Next 15 ohnehin Default für GET-Handler). Upstream-Zeilen validiert `feedItemSchema` (zod `.catch("")` für Textfelder), ungültige Zeilen werden still verworfen statt den Feed zu blockieren.
+- `npm run build` niemals parallel zum laufenden Dev-Server ausführen, beide teilen sich `.next` und der Build zerschießt die Dev-Artefakte (danach Dev-Server neu starten).

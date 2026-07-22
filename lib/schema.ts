@@ -47,3 +47,25 @@ export type FeedItem = {
   confidence: string;
   fehler: string;
 };
+
+export type FehlerAntwort = { ok: false; fehler: string };
+
+export type FeedAntwort = { items: FeedItem[] };
+
+// Laufzeit-Validierung fuer Upstream-Daten aus n8n (Phase 7): Kernfelder strikt,
+// Textfelder tolerant per .catch(""), damit einzelne Luecken kein Item verwerfen.
+export const feedItemSchema = z.object({
+  runId: z.string().min(1),
+  erstelltAm: z.string().min(1),
+  status: z.enum(["BEREIT", "REVIEW_NOETIG", "FEHLER"]),
+  hauptaktie: z.string().catch(""),
+  isin: z.string().catch(""),
+  kicker: z.string().catch(""),
+  title: z.string().catch(""),
+  seoTitle: z.string().catch(""),
+  teaser: z.string().catch(""),
+  offeneMarker: z.string().catch(""),
+  restFindings: z.string().catch(""),
+  confidence: z.string().catch(""),
+  fehler: z.string().catch(""),
+});

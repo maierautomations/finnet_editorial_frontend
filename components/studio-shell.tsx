@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BriefingFormular } from "@/components/briefing/briefing-formular";
-import { FeedPlatzhalter } from "@/components/feed/feed-platzhalter";
+import { FeedAnsicht } from "@/components/feed/feed-ansicht";
 
 // Beide Tab-Panels bleiben dauerhaft gemountet (forceMount), damit Formular-
 // und spaeter Lauf-Modus-State einen Tab-Wechsel ueberleben. Radix blendet
@@ -33,7 +33,7 @@ export function StudioShell() {
           <BriefingFormular />
         </TabsContent>
         <TabsContent value="feed" forceMount className="data-[state=inactive]:hidden">
-          <FeedPlatzhalter />
+          <FeedAnsicht />
         </TabsContent>
       </main>
     </Tabs>
