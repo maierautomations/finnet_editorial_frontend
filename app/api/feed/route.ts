@@ -19,6 +19,38 @@ function sortiereNeuesteZuerst(items: FeedItem[]): FeedItem[] {
   return items.sort((a, b) => (a.erstelltAm < b.erstelltAm ? 1 : -1)).slice(0, MAX_ITEMS);
 }
 
+// Zeilen aus dem Review-Sheet tragen die Spaltennamen des Sheets (RunID, ErstelltAm, ...).
+// Vor der Validierung auf die FeedItem-Schluessel abbilden; Zeilen, die schon camelCase
+// sind (etwa ueber eine Code-Node in n8n vorgemappt), laufen unveraendert durch. Unbekannte
+// Schluessel wie TextHTML oder row_number entfernt feedItemSchema beim Parsen.
+const SPALTEN_ZUORDNUNG: Record<string, string> = {
+  RunID: "runId",
+  ErstelltAm: "erstelltAm",
+  Status: "status",
+  Hauptaktie: "hauptaktie",
+  ISIN: "isin",
+  Kicker: "kicker",
+  Title: "title",
+  SEOTitle: "seoTitle",
+  Teaser: "teaser",
+  OffeneMarker: "offeneMarker",
+  RestFindings: "restFindings",
+  Confidence: "confidence",
+  Fehler: "fehler",
+};
+
+function normalisiereZeile(roh: unknown): unknown {
+  if (typeof roh !== "object" || roh === null) return roh;
+  const quelle = roh as Record<string, unknown>;
+  const zeile: Record<string, unknown> = { ...quelle };
+  for (const [spalte, feld] of Object.entries(SPALTEN_ZUORDNUNG)) {
+    if (zeile[feld] === undefined && spalte in quelle) {
+      zeile[feld] = quelle[spalte];
+    }
+  }
+  return zeile;
+}
+
 export async function GET(): Promise<NextResponse<FeedAntwort | FehlerAntwort>> {
   if (process.env.USE_MOCK === "1") {
     return NextResponse.json({ items: sortiereNeuesteZuerst(holeMockFeed()) });
@@ -48,6 +80,17 @@ export async function GET(): Promise<NextResponse<FeedAntwort | FehlerAntwort>> 
     // Netzfehler und Timeout landen beide hier
     return NextResponse.json(
       { ok: false, fehler: "n8n ist gerade nicht erreichbar, in einer Minute erneut versuchen" },
+      { status: 502 }
+    );
+  }
+
+  if (antwort.status === 401 || antwort.status === 403) {
+    return NextResponse.json(
+      {
+        ok: false,
+        fehler:
+          "n8n hat den Zugriff abgelehnt, EI_TOKEN und das Header-Auth-Credential in n8n müssen exakt übereinstimmen",
+      },
       { status: 502 }
     );
   }
@@ -85,9 +128,10 @@ export async function GET(): Promise<NextResponse<FeedAntwort | FehlerAntwort>> 
   }
 
   // Einzelne ungueltige Zeilen still verwerfen statt den ganzen Feed zu blockieren
+  // (auch die Leerzeile, die "Always Output Data" bei leerem Sheet erzeugt)
   const items: FeedItem[] = [];
   for (const eintrag of roh) {
-    const geparst = feedItemSchema.safeParse(eintrag);
+    const geparst = feedItemSchema.safeParse(normalisiereZeile(eintrag));
     if (geparst.success) {
       items.push(geparst.data);
     }
