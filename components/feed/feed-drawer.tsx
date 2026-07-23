@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { FeedItem } from "@/lib/schema";
 import {
+  anzeigeStatus,
   formatiereLaufzeit,
   formatiereZeitpunkt,
   laufzeitSekunden,
@@ -131,7 +132,7 @@ export function FeedDrawer({
             <SheetHeader className="border-b border-border">
               <div className="flex items-center gap-3 pr-10">
                 <SheetTitle className="text-lg">{item.hauptaktie}</SheetTitle>
-                <StatusBadge status={item.status} />
+                <StatusBadge status={anzeigeStatus(item)} />
               </div>
               <SheetDescription className="font-mono">
                 {item.isin || "keine Angabe"}

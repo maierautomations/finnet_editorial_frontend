@@ -2,13 +2,15 @@ import { Activity, CalendarDays, Newspaper, Timer } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { FeedItem, FeedStatus } from "@/lib/schema";
+import type { AnzeigeStatus, FeedItem } from "@/lib/schema";
 import { berechneFeedStats, formatiereLaufzeit } from "@/lib/feed-berechnungen";
+import { STATUS_ANZEIGE } from "@/components/feed/status-badge";
 
-const STATUS_REIHEN: { status: FeedStatus; label: string; balken: string }[] = [
-  { status: "BEREIT", label: "BEREIT", balken: "bg-status-bereit" },
-  { status: "REVIEW_NOETIG", label: "REVIEW NÖTIG", balken: "bg-status-review" },
-  { status: "FEHLER", label: "FEHLER", balken: "bg-status-fehler" },
+const STATUS_REIHEN: { status: AnzeigeStatus; label: string; balken: string }[] = [
+  { status: "BEREIT", label: STATUS_ANZEIGE.BEREIT, balken: "bg-status-bereit" },
+  { status: "REVIEW_NOETIG", label: STATUS_ANZEIGE.REVIEW_NOETIG, balken: "bg-status-review" },
+  { status: "FEHLER", label: STATUS_ANZEIGE.FEHLER, balken: "bg-status-fehler" },
+  { status: "ONLINE", label: STATUS_ANZEIGE.ONLINE, balken: "bg-primary" },
 ];
 
 function StatKarte({

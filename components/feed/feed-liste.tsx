@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleCheck } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import type { FeedItem } from "@/lib/schema";
-import { formatiereRelativeZeit } from "@/lib/feed-berechnungen";
+import { anzeigeStatus, formatiereRelativeZeit } from "@/lib/feed-berechnungen";
 import { StatusBadge } from "@/components/feed/status-badge";
 
 export function FeedListe({
@@ -35,7 +34,10 @@ export function FeedListe({
               onClick={() => onAuswahl(item)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
             >
-              <StatusBadge status={item.status} className="min-w-24 shrink-0 justify-center" />
+              <StatusBadge
+                status={anzeigeStatus(item)}
+                className="min-w-24 shrink-0 justify-center"
+              />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm">
                   <span className="font-medium">{item.hauptaktie}</span>
@@ -48,14 +50,7 @@ export function FeedListe({
                   {item.runId.slice(0, 15)}
                 </span>
               </span>
-              <span className="flex shrink-0 items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                {item.online && (
-                  <CircleCheck
-                    role="img"
-                    aria-label="Im CMS online"
-                    className="size-3.5 shrink-0 text-status-bereit"
-                  />
-                )}
+              <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                 {formatiereRelativeZeit(item.erstelltAm, jetzt)}
               </span>
             </button>

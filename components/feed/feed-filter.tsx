@@ -5,16 +5,19 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { FeedStatus } from "@/lib/schema";
+import type { AnzeigeStatus } from "@/lib/schema";
 import { STATUS_ANZEIGE } from "@/components/feed/status-badge";
 
-export type StatusFilter = FeedStatus | "ALLE";
+export type StatusFilter = AnzeigeStatus | "ALLE";
 
+// Die Chips filtern auf den Anzeige-Status: BEREIT und REVIEW NÖTIG zeigen nur
+// noch nicht abgehakte Beitraege, abgehakte laufen unter ONLINE.
 const STATUS_CHIPS: { wert: StatusFilter; label: string; punkt?: string }[] = [
   { wert: "ALLE", label: "Alle" },
   { wert: "BEREIT", label: STATUS_ANZEIGE.BEREIT, punkt: "bg-status-bereit" },
   { wert: "REVIEW_NOETIG", label: STATUS_ANZEIGE.REVIEW_NOETIG, punkt: "bg-status-review" },
   { wert: "FEHLER", label: STATUS_ANZEIGE.FEHLER, punkt: "bg-status-fehler" },
+  { wert: "ONLINE", label: STATUS_ANZEIGE.ONLINE, punkt: "bg-primary" },
 ];
 
 // Kontrollierte Filterzeile: Status-Chips, Toggle "Noch nicht online" (der

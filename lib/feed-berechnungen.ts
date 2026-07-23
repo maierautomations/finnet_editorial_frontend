@@ -1,4 +1,4 @@
-import type { FeedItem, FeedStatus } from "@/lib/schema";
+import type { AnzeigeStatus, FeedItem } from "@/lib/schema";
 
 // Abgeleitete Werte aus Feed-Items, komplett client-tauglich (keine Server-Imports).
 // Laufzeit-Trick: RunID-Praefix und erstelltAm werden beide als Berliner Wanduhr
@@ -8,9 +8,15 @@ export type FeedStats = {
   gesamt: number;
   heute: number;
   dieseWoche: number;
-  jeStatus: Record<FeedStatus, number>;
+  jeStatus: Record<AnzeigeStatus, number>;
   durchschnittslaufzeitSekunden: number | null;
 };
+
+// Anzeige-Status eines Items: abgehakt (online) verdraengt BEREIT und
+// REVIEW_NOETIG in der Anzeige, ein FEHLER-Lauf kann nicht online sein.
+export function anzeigeStatus(item: Pick<FeedItem, "status" | "online">): AnzeigeStatus {
+  return item.online && item.status !== "FEHLER" ? "ONLINE" : item.status;
+}
 
 // Exakt dieselben Optionen wie in lib/runid.ts, sonst laufen RunID-Wanduhr und
 // erstelltAm-Wanduhr formal auseinander. Einmal bauen, Konstruktion ist teuer.
@@ -87,14 +93,19 @@ function berlinerWochenstart(jetzt: Date): string {
 export function berechneFeedStats(items: FeedItem[], jetzt: Date = new Date()): FeedStats {
   const heuteDatum = berlinerDatum(jetzt);
   const wochenstart = berlinerWochenstart(jetzt);
-  const jeStatus: Record<FeedStatus, number> = { BEREIT: 0, REVIEW_NOETIG: 0, FEHLER: 0 };
+  const jeStatus: Record<AnzeigeStatus, number> = {
+    BEREIT: 0,
+    REVIEW_NOETIG: 0,
+    FEHLER: 0,
+    ONLINE: 0,
+  };
   let heute = 0;
   let dieseWoche = 0;
   let laufzeitSumme = 0;
   let laufzeitAnzahl = 0;
 
   for (const item of items) {
-    jeStatus[item.status] += 1;
+    jeStatus[anzeigeStatus(item)] += 1;
 
     const erstellt = new Date(item.erstelltAm);
     if (!Number.isNaN(erstellt.getTime())) {

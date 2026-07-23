@@ -7,6 +7,7 @@ import { Inbox, SearchX, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import type { FeedItem, OnlineAntwort } from "@/lib/schema";
+import { anzeigeStatus } from "@/lib/feed-berechnungen";
 import { feedFetcher } from "@/lib/feed-fetcher";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -139,7 +140,7 @@ export function FeedAnsicht() {
 
   const suchbegriff = suche.trim().toLowerCase();
   const gefiltert = data.filter((item) => {
-    if (statusFilter !== "ALLE" && item.status !== statusFilter) return false;
+    if (statusFilter !== "ALLE" && anzeigeStatus(item) !== statusFilter) return false;
     if (nurNichtOnline && item.online) return false;
     if (
       suchbegriff !== "" &&

@@ -32,6 +32,10 @@ export type BriefingAntwort =
 
 export type FeedStatus = "BEREIT" | "REVIEW_NOETIG" | "FEHLER";
 
+// Anzeige-Status: abgehakte Beitraege (online) erscheinen in der UI als ONLINE
+// statt ihres Sheet-Status. Reiner Frontend-Zustand, das Sheet kennt nur die drei Werte.
+export type AnzeigeStatus = FeedStatus | "ONLINE";
+
 export type FeedItem = {
   runId: string;
   erstelltAm: string; // ISO
