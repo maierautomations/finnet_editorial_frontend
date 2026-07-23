@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EI Studio
 
-## Getting Started
+Internes Redaktions-Frontend für finanzen.net. Redakteure schicken Artikel-Briefings an einen bestehenden n8n-Workflow (der recherchiert, schreibt, prüft und den Entwurf in ein Review-Google-Sheet sowie als Draft ins CMS legt) und verfolgen die erzeugten Artikel in einem Feed mit Status und Statistiken. Das Frontend ist reine Eingabe- und Anzeigefläche: es hält keine eigenen Daten, publiziert nichts und bearbeitet keine Artikel.
 
-First, run the development server:
+## Funktionen
+
+- Briefing-Formular mit Preset-Chips, ISIN-Live-Validierung, Artikeltyp-Karten und eingeklapptem Optionalblock
+- Lauf-Modus nach dem Absenden: kopierbare RunID, Stepper (Angenommen, In Arbeit, Fertig), automatisches Polling bis der Artikel im Feed erscheint
+- Feed mit Stat-Karten (gesamt, diese Woche, Status-Verteilung, Durchschnittslaufzeit), Liste und Detail-Drawer mit allen Feldern
+- Duplikat-Hinweis, wenn zur eingegebenen ISIN heute schon ein Artikel existiert
+- Vollständiger Mock-Betrieb ohne n8n über `USE_MOCK=1`
+
+## Stack
+
+Next.js 15 (App Router, TypeScript strict, Turbopack), Tailwind CSS v4, shadcn/ui, SWR, react-hook-form, zod, Framer Motion, sonner. Keine Datenbank, kein Auth-Provider, kein zusätzliches State-Management.
+
+## Lokale Entwicklung
 
 ```bash
+npm install
+cp .env.example .env.local   # USE_MOCK=1 reicht fuer den Start
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Die App läuft dann auf http://localhost:3000 und funktioniert mit `USE_MOCK=1` komplett ohne Netzwerkzugriff auf n8n.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Umgebungsvariablen
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Alle Variablen sind rein serverseitig und tauchen nie im Client-Bundle auf. Werte stehen nur in `.env.local` (gitignored) beziehungsweise in den Vercel-Env-Settings.
 
-## Learn More
+| Variable | Zweck |
+| --- | --- |
+| `USE_MOCK` | `1` = beide API-Routen liefern Mock-Daten aus `lib/mock.ts`, `0` = Proxy zu n8n |
+| `N8N_BRIEFING_URL` | n8n-Webhook für den Briefing-Intake |
+| `N8N_FEED_URL` | n8n-Webhook, der die Zeilen des Review-Sheets liefert |
+| `EI_TOKEN` | Auth-Token für beide n8n-Webhooks (Header `X-EI-Token`) |
+| `STUDIO_PASSWORT` | Gemeinsames Redaktions-Passwort (Basic Auth via `middleware.ts`); nicht gesetzt = kein Schutz, lokal leer lassen |
 
-To learn more about Next.js, take a look at the following resources:
+## Architektur in Kürze
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Der Browser spricht ausschließlich mit den eigenen Route Handlern `POST /api/briefing` und `GET /api/feed`, niemals direkt mit n8n. Die Routen validieren mit zod, mappen die Feldnamen auf den n8n-Vertrag, reichen Fehler nie roh durch (immer als verständlicher deutscher Satz) und normalisieren die Spalten des Review-Sheets auf das Frontend-Format. Quelle der Wahrheit ist der Feed, Statistiken berechnet das Frontend selbst aus den Feed-Items.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+Läuft auf Vercel (Projekt `finnet-editorial-frontend`). Das Repo ist mit Vercel verbunden: **jeder Push auf `main` deployt automatisch nach Production.** Die fünf Umgebungsvariablen sind in den Vercel-Project-Settings gepflegt, der Zugriff ist über `STUDIO_PASSWORT` (Basic Auth) geschützt.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Hinweis für KI-Sessions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`CLAUDE.md` im Root ist der verbindliche Projektkontext (API-Vertrag, Design-Tokens, Sprachregeln, Projektstand, n8n-Vertrag). Vor Änderungen vollständig lesen.
