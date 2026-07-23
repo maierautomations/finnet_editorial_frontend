@@ -150,11 +150,9 @@ Erledigt (Phasen 0 bis 6):
   - Der Drawer hält nur noch die RunID und leitet das Item live aus dem SWR-Cache ab (optimistische Updates wirken sofort in Drawer, Liste, Stats).
   - Verifikation: curl gegen Dev-Server mit USE_MOCK=1 (Feed liefert textHtml/online für alle 18 plus Registry-Items, Online-Toggle-Roundtrip inklusive 404 bei unbekannter RunID und 400 bei kaputtem Body, Registry-Lauf erscheint nach 60 bis 90 s mit generiertem HTML und Kurs-Marker), Compliance-Greps sauber, `npm run build` und `npx eslint .` fehlerfrei, keine Secret-Namen im Client-Bundle.
 
-Offen, nächster Schritt (n8n-Seite des Online-Abhakens, macht der Betreiber):
-1. Review-Sheet "EI-CMS-Artikel-Review", Tab "Review": neue Spalte mit Header `Online` ans Ende der Kopfzeile (leer = nicht online; Appends der Artikel-Workflows bleiben durch autoMapInputData unberührt).
-2. Feed-Workflow ("My workflow"), Code-Node "Code in JavaScript": im `json: { ... }`-Objekt zwei Zeilen ergänzen: `textHtml: String(z.TextHTML ?? ""),` und `online: String(z.Online ?? ""),`
-3. Neuer kleiner Workflow: Webhook (POST, Header Auth mit Credential "X-EI-Token", Respond: Using Respond to Webhook Node) → Google Sheets "Update Row" (Dokument EI-CMS-Artikel-Review, Tab Review, Column to match on `RunID`, Werte RunID = `{{ $json.body.runId }}`, Online = `{{ $json.body.online ? "TRUE" : "FALSE" }}`) → Respond to Webhook (JSON `{ "ok": true }`), Workflow aktivieren.
-4. Produktions-URL des Webhooks als `N8N_ONLINE_URL` in `.env.local` und in den Vercel-Env-Settings (Production) eintragen, Redeploy. Bis dahin liefert der Online-Toggle live den Config-Fehlersatz, mit USE_MOCK=1 funktioniert alles.
+- Phase 9, n8n-Seite (23. Juli 2026): Online-Webhook in n8n gebaut (POST, Header-Auth X-EI-Token, Google Sheets Update Row mit RunID-Match, Respond nach dem Update) und die Produktions-URL als `N8N_ONLINE_URL` in `.env.local` sowie per Vercel-CLI in den Production-Envs gesetzt (jetzt sechs Variablen). Der Feed-Workflow liefert `textHtml` und `online` mit, live verifiziert über den lokalen Proxy: alle Sheet-Zeilen kommen mit gefülltem textHtml an. Lokal steht `USE_MOCK=0` für den Live-Test.
+
+Offen: Live-Test des Online-Toggles durch die Redaktion. Voraussetzung dafür: die Spalte `Online` existiert als Header im Review-Sheet (Tab "Review"), sonst schlägt das Update im n8n-Webhook fehl und die App zeigt den gemappten Fehlersatz.
 
 Offen (optional): eigene Domain, Übergabe an internes Hosting der finanzen.net-IT, Rotation von EI_TOKEN und Vercel-Token bei Bedarf.
 
