@@ -1,10 +1,10 @@
-# CLAUDE.md, Projektkontext EI Studio
+# CLAUDE.md, Projektkontext Finnet Editorial AI
 
 Diese Datei ist der verbindliche Kontext für alle KI-gestützten Code-Änderungen in diesem Repo. Vor jeder Aufgabe vollständig lesen und befolgen.
 
 ## Was dieses Projekt ist
 
-EI Studio ist ein internes Frontend für Redakteure von finanzen.net. Es schickt Artikel-Briefings an einen bestehenden n8n-Workflow (der recherchiert, schreibt, prüft und den Artikel in ein Review-Google-Sheet und als Draft ins CMS legt) und zeigt einen Feed der erzeugten Artikel samt Status und Stats. Das Frontend ist reine Eingabe- und Anzeigefläche. Es hält keine eigenen Daten, publiziert nichts und bearbeitet keine Artikel.
+Finnet Editorial AI (sichtbare Wortmarke, früher "EI Studio"; interne Namen wie EI_TOKEN, Header X-EI-Token, Vercel-Projekt und Repo tragen weiter das alte Kürzel) ist ein internes Frontend für Redakteure von finanzen.net. Es schickt Artikel-Briefings an einen bestehenden n8n-Workflow (der recherchiert, schreibt, prüft und den Artikel in ein Review-Google-Sheet und als Draft ins CMS legt) und zeigt einen Feed der erzeugten Artikel samt Status und Stats. Das Frontend ist reine Eingabe- und Anzeigefläche. Es hält keine eigenen Daten, publiziert nichts und bearbeitet keine Artikel; einzige Rückschreibe-Aktion ist der Online-Vermerk (Redakteur hakt ab, dass ein Beitrag im CMS online ist, gespeichert in der Sheet-Spalte Online via n8n).
 
 ## Stack (nicht diskutieren, so bauen)
 
@@ -14,9 +14,9 @@ EI Studio ist ein internes Frontend für Redakteure von finanzen.net. Es schickt
 
 ## Architektur-Regeln (hart)
 
-1. Der Browser spricht nur mit eigenen Route Handlern (`/api/briefing`, `/api/feed`). Niemals direkt mit n8n.
-2. `EI_TOKEN`, `N8N_BRIEFING_URL`, `N8N_FEED_URL` existieren nur serverseitig (`process.env`), tauchen nie im Client-Bundle auf.
-3. `USE_MOCK=1` schaltet beide Routen auf Mock-Daten aus `lib/mock.ts`. Alle Features müssen vollständig mit Mocks funktionieren.
+1. Der Browser spricht nur mit eigenen Route Handlern (`/api/briefing`, `/api/feed`, `/api/online`). Niemals direkt mit n8n.
+2. `EI_TOKEN`, `N8N_BRIEFING_URL`, `N8N_FEED_URL`, `N8N_ONLINE_URL` existieren nur serverseitig (`process.env`), tauchen nie im Client-Bundle auf.
+3. `USE_MOCK=1` schaltet alle Routen auf Mock-Daten aus `lib/mock.ts`. Alle Features müssen vollständig mit Mocks funktionieren.
 4. Quelle der Wahrheit ist der Feed (später das Review-Sheet via n8n). Das Frontend berechnet Stats selbst aus den Feed-Items, es gibt keinen separaten Stats-Endpoint.
 5. Fehler von n8n werden nie roh durchgereicht, sondern als `{ ok: false, fehler: "verständlicher deutscher Satz" }` gemappt.
 
@@ -65,12 +65,18 @@ type FeedItem = {
   restFindings: string;
   confidence: string;
   fehler: string;
+  textHtml: string; // Artikel-HTML aus der Sheet-Spalte TextHTML (GroundStyle: p, ul/li, h2/h3, a)
+  online: boolean; // Redakteur hat abgehakt, dass der Beitrag im CMS online ist (Sheet-Spalte Online)
 };
 ```
 
-Abgeleitete Werte (im Frontend berechnen): Laufzeit in Sekunden = `erstelltAm` minus Zeitstempel aus der RunID (die ersten 15 Zeichen, lokale Zeit Europe/Berlin). Stats: gesamt, heute, diese Woche, Anzahl je Status, Durchschnittslaufzeit.
+Abgeleitete Werte (im Frontend berechnen): Laufzeit in Sekunden = `erstelltAm` minus Zeitstempel aus der RunID (die ersten 15 Zeichen, lokale Zeit Europe/Berlin), plausibel nur zwischen 30 und 21600 Sekunden (darunter Alt-Zeilen mit ErstelltAm gleich Startzeit, darüber Ausreißer; beides ergibt null und fällt aus dem Durchschnitt). Stats: gesamt, heute, diese Woche, Anzahl je Status, Durchschnittslaufzeit.
 
-`lib/mock.ts` liefert mindestens 15 realistische deutsche Finanz-Beispiele (Rheinmetall, NVIDIA, AMD, Siemens Energy, Commerzbank und so weiter) mit allen drei Status, plausiblen Zeiten der letzten sieben Tage und gefüllten Feldern inklusive Markern wie `[Kurs einsetzen: Wert, Währung, Börsenplatz, Datum/Uhrzeit]`.
+`lib/mock.ts` liefert mindestens 15 realistische deutsche Finanz-Beispiele (Rheinmetall, NVIDIA, AMD, Siemens Energy, Commerzbank und so weiter) mit allen drei Status, plausiblen Zeiten der letzten sieben Tage und gefüllten Feldern inklusive Markern wie `[Kurs einsetzen: Wert, Währung, Börsenplatz, Datum/Uhrzeit]`, GroundStyle-`textHtml` für alle Nicht-FEHLER-Einträge und einigen bereits abgehakten (`online: true`) Einträgen.
+
+### POST /api/online
+
+Body: `{ runId: string, online: boolean }` (zod: `onlineAnfrageSchema`). Antwort: `{ ok: true }` oder `{ ok: false, fehler: string }`. Bei `USE_MOCK=1` schreibt die Route in eine Mock-Registry, sonst Proxy zum n8n-Webhook `N8N_ONLINE_URL` (Header `X-EI-Token`), der im Review-Sheet die Spalte `Online` der Zeile mit passender RunID auf TRUE/FALSE setzt und erst nach dem Update antwortet.
 
 ## Design-Tokens
 
@@ -82,11 +88,12 @@ Abgeleitete Werte (im Frontend berechnen): Laufzeit in Sekunden = `erstelltAm` m
 
 ## UI-Struktur
 
-- Header: Wortmarke "EI Studio", Tabs "Neues Briefing" und "Feed"
+- Header: Wortmarke "Finnet Editorial AI", Tabs "Neues Briefing" und "Feed"
 - Tab Neues Briefing: Preset-Chips, Pflichtfelder (Thema, Hauptaktie Name plus ISIN, Artikeltyp als drei Karten, Schwerpunkt), Optionalblock eingeklappt (Redakteurskurs zuerst, mit Hinweis-Chip "Kurs mitgeben = Artikel kann direkt BEREIT werden"), Submit-Button "Artikel erstellen lassen"
 - Nach Submit: Lauf-Modus-Karte mit RunID (kopierbar), Stepper Angenommen / In Arbeit / Fertig, Polling des Feeds alle 20 Sekunden bis die RunID auftaucht, dann Status-Badge plus Kicker- und Title-Vorschau
-- Tab Feed: vier Stat-Karten, darunter Liste mit Status-Badge, Hauptaktie, Title, Zeit; Klick öffnet Drawer mit allen Feldern des FeedItem
+- Tab Feed: vier Stat-Karten, darunter Filterzeile (Status-Chips, Toggle "Noch nicht online", Textsuche über Aktie und Titel), darunter Liste mit Status-Badge, Hauptaktie, Title, relativer Zeit ("vor 5 min", älter als ein Tag als Datum) und Online-Haken; Klick öffnet Drawer mit allen Feldern des FeedItem, Online-Toggle ("Als online markieren"), Kopier-Buttons für Kicker/Titel/SEO-Titel/Teaser und aufklappbarem Bereich "Artikel anzeigen" (gerendertes textHtml)
 - Duplikat-Hinweis im Formular, wenn zur eingegebenen ISIN heute bereits ein Feed-Item existiert
+- Fertig-Toast: wird der Lauf fertig, während der Feed-Tab aktiv ist, erscheint ein sonner-Toast (im Briefing-Tab übernimmt der Erfolgsmoment des Lauf-Modus)
 
 ## Sprach- und Stilregeln (hart, gelten für alle UI-Texte, Kommentare in Code auf Deutsch oder Englisch, UI immer Deutsch)
 
@@ -107,10 +114,10 @@ Abgeleitete Werte (im Frontend berechnen): Laufzeit in Sekunden = `erstelltAm` m
 
 - Keine zusätzlichen Abhängigkeiten ohne Notwendigkeit (kein Redux, kein axios, kein moment.js; fetch und date-fns-freie Eigenlogik reichen).
 - Keine Credentials, Tokens oder n8n-URLs im Client-Code oder im Repo.
-- Kein Publish-, Freigabe- oder Edit-Feature für Artikel.
+- Kein Publish-, Freigabe- oder Edit-Feature für Artikel. Der Online-Vermerk (`/api/online`) ist bewusst nur ein Abhaken fürs Tracking im Review-Sheet, kein Publish.
 - Keine Änderungen am API-Vertrag ohne ausdrückliche Anweisung.
 
-## Projektstand (Stand 22. Juli 2026)
+## Projektstand (Stand 23. Juli 2026)
 
 Erledigt (Phasen 0 bis 6):
 
@@ -134,6 +141,21 @@ Erledigt (Phasen 0 bis 6):
 
 - GitHub-Integration ist mit dem Vercel-Projekt verbunden: jeder Push auf main deployt automatisch nach Production. Manuelle Deploys gehen weiterhin per `npx vercel deploy --prod --token <Vercel-Token>`. Eine README.md für GitHub liegt im Root.
 
+- Phase 9 (23. Juli 2026), Umbenennung, Laufzeit-Fix, Artikel-Anzeige, Online-Abhaken, Feed-Feinschliff:
+  - Sichtbare Wortmarke überall "Finnet Editorial AI" (Header in `studio-shell.tsx`, Metadata in `app/layout.tsx`, Basic-Auth-Realm in `middleware.ts`, README, diese Datei). Interne Namen unverändert (EI_TOKEN, X-EI-Token, `__eiStudioMock...`-Registry-Keys, Vercel-Projekt, Repo, `ei-studio-konzept.md`).
+  - Laufzeit-Untergrenze: `laufzeitSekunden()` liefert null unter 30 s (`MIN_LAUFZEIT_SEKUNDEN`), damit Alt-Zeilen mit ErstelltAm gleich Startzeit den Durchschnitt nicht mehr auf 0 drücken. Mock-Laufzeiten (min. 61 s) unberührt.
+  - `textHtml` im FeedItem (API-Vertrag-Erweiterung, ausdrücklich freigegeben): `feedItemSchema` mit `.catch("")`, `SPALTEN_ZUORDNUNG` um `TextHTML: "textHtml"`, 16 Mock-Einträge mit GroundStyle-HTML (REVIEW_NOETIG-Einträge mit ihren Markern im Text, AMD/Palantir leer), Registry-Läufe erzeugen HTML via `baueMockArtikelHtml()`. Anzeige im Drawer als DIY-Collapsible "Artikel anzeigen" (`ArtikelInhalt`, `dangerouslySetInnerHTML`, HTML stammt aus dem eigenen Workflow), Typografie über `.artikel-inhalt` in `globals.css`.
+  - Online-Abhaken sheet-basiert: `online: boolean` im FeedItem (Schema-preprocess akzeptiert TRUE/WAHR/JA/1-Strings und Booleans, `.catch(false)`), neue Route `POST /api/online` (Mock-Zweig `setzeMockOnline()` mit globalThis-Registry `__eiStudioMockOnline`, sonst Proxy zu `N8N_ONLINE_URL`, Fehler-Mapping wie Briefing-Route), Drawer-Toggle "Als online markieren" (bei FEHLER ausgeblendet, Pending-Guard), Online-Haken in der Liste, Filter-Chip "Noch nicht online". Optimistisches SWR-Update mit `rollbackOnError` und `revalidate: false` (der 30-s-Poll konvergiert). n8n-Seite noch offen, siehe unten.
+  - Feed-Feinschliff (vom Nutzer per Auswahl beauftragt): Kopier-Buttons je Feld im Drawer (Kicker, Titel, SEO-Titel, Teaser, Muster aus dem Lauf-Modus), Filterzeile `feed-filter.tsx` (Status-Chips mit Farb-Punkt, Suche über Aktie und Titel, `KeineTreffer`-Zustand mit Reset), relative Zeitangaben in der Liste (`formatiereRelativeZeit()` plus Minuten-Ticker), Fertig-Toast bei aktivem Feed-Tab (Prop-Kette `feedTabAktiv` Shell zu Formular zu LaufModus, Ref-Guard je RunID, nutzt exportiertes `STATUS_ANZEIGE`), Politur (Tab-Fade über tw-animate-css nur beim data-state-Flip, Stat-Karten-Icons in Container, Mobile-Paddings, Stat-Grid ab 420 px zweispaltig, Drawer mobil volle Breite, RunID-Zeile mobil ausgeblendet). Bewusst nicht gebaut: "Erneut absenden bei FEHLER" (vom Nutzer abgewählt).
+  - Der Drawer hält nur noch die RunID und leitet das Item live aus dem SWR-Cache ab (optimistische Updates wirken sofort in Drawer, Liste, Stats).
+  - Verifikation: curl gegen Dev-Server mit USE_MOCK=1 (Feed liefert textHtml/online für alle 18 plus Registry-Items, Online-Toggle-Roundtrip inklusive 404 bei unbekannter RunID und 400 bei kaputtem Body, Registry-Lauf erscheint nach 60 bis 90 s mit generiertem HTML und Kurs-Marker), Compliance-Greps sauber, `npm run build` und `npx eslint .` fehlerfrei, keine Secret-Namen im Client-Bundle.
+
+Offen, nächster Schritt (n8n-Seite des Online-Abhakens, macht der Betreiber):
+1. Review-Sheet "EI-CMS-Artikel-Review", Tab "Review": neue Spalte mit Header `Online` ans Ende der Kopfzeile (leer = nicht online; Appends der Artikel-Workflows bleiben durch autoMapInputData unberührt).
+2. Feed-Workflow ("My workflow"), Code-Node "Code in JavaScript": im `json: { ... }`-Objekt zwei Zeilen ergänzen: `textHtml: String(z.TextHTML ?? ""),` und `online: String(z.Online ?? ""),`
+3. Neuer kleiner Workflow: Webhook (POST, Header Auth mit Credential "X-EI-Token", Respond: Using Respond to Webhook Node) → Google Sheets "Update Row" (Dokument EI-CMS-Artikel-Review, Tab Review, Column to match on `RunID`, Werte RunID = `{{ $json.body.runId }}`, Online = `{{ $json.body.online ? "TRUE" : "FALSE" }}`) → Respond to Webhook (JSON `{ "ok": true }`), Workflow aktivieren.
+4. Produktions-URL des Webhooks als `N8N_ONLINE_URL` in `.env.local` und in den Vercel-Env-Settings (Production) eintragen, Redeploy. Bis dahin liefert der Online-Toggle live den Config-Fehlersatz, mit USE_MOCK=1 funktioniert alles.
+
 Offen (optional): eigene Domain, Übergabe an internes Hosting der finanzen.net-IT, Rotation von EI_TOKEN und Vercel-Token bei Bedarf.
 
 ### Technische Notizen für Folge-Sessions
@@ -147,11 +169,15 @@ Offen (optional): eigene Domain, Übergabe an internes Hosting der finanzen.net-
 - `.gitignore`: `.env*` ist ignoriert, `.env.example` per `!.env.example` freigestellt. Der n8n-Workflow-Export (JSON im Root) bleibt bewusst unversioniert.
 - Feld-Fehlertexte: das zod-Schema bleibt exakt wie im API-Vertrag, deutsche Fehlertexte für Felder ohne eigene Schema-Message (schwerpunkt, hauptName, artikeltyp) werden im Formular selbst gerendert.
 - Mock-Feed: `holeMockFeed()` in `lib/mock.ts` liefert flache Kopien, Zeiten und RunIDs entstehen einmal pro Serverprozess beim Modul-Load und bleiben zwischen Requests stabil. Die Phase-5-Registry eingereichter Briefings (Briefing-Route schreibt, Feed-Route liest) wegen HMR und getrennter Dev-Modulgraphen als globalThis-Singleton bauen.
-- `lib/feed-berechnungen.ts` ist client-tauglich: Laufzeit über den Wanduhr-als-UTC-Trick (RunID-Präfix und erstelltAm beide als Berliner Wanduhr lesen, Differenz rechnen als wäre es UTC), Guard 0 bis 21600 Sekunden, sonst null und aus dem Durchschnitt ausgeschlossen. `berlinerDatum()` für den Duplikat-Hinweis in Phase 6 wiederverwenden. Der Intl-Formatter nutzt exakt dieselben Optionen wie `lib/runid.ts`.
+- `lib/feed-berechnungen.ts` ist client-tauglich: Laufzeit über den Wanduhr-als-UTC-Trick (RunID-Präfix und erstelltAm beide als Berliner Wanduhr lesen, Differenz rechnen als wäre es UTC), Guard 30 bis 21600 Sekunden (Untergrenze wegen Alt-Zeilen mit ErstelltAm gleich Startzeit, Obergrenze gegen Ausreißer), sonst null und aus dem Durchschnitt ausgeschlossen. `berlinerDatum()` für den Duplikat-Hinweis in Phase 6 wiederverwenden. Der Intl-Formatter nutzt exakt dieselben Optionen wie `lib/runid.ts`. `formatiereRelativeZeit()` rechnet dagegen bewusst auf echten Instants (Date-Millis), die Wanduhr-Achse braucht nur der RunID-Vergleich.
 - Zugriffsschutz: `middleware.ts` im Root schützt alles inklusive `/api` per Basic Auth mit einem gemeinsamen Passwort aus `STUDIO_PASSWORT` (kein Auth-Provider, keine Nutzerverwaltung, Nutzername egal). Ist die Variable nicht gesetzt, ist alles offen, lokal bleibt sie deshalb leer. Getestet: ohne Variable 200, mit Variable 401 ohne und mit falscher Kennung, 200 mit richtiger, statische Assets ausgenommen (matcher).
 - Deployment-Vorsicht: das GitHub-Repo ist mit Vercel verbunden, jeder Push auf main triggert einen Production-Deploy. Committen ohne Push ist der sichere Zwischenstand; erst pushen, wenn Build und eslint grün sind.
-- n8n-Vertrag (aus dem Workflow-Export im Root abgeleitet): Der Workflow liest die Eingabe über die deutschen Form-Labels ("Thema / Auslöser", "Hauptaktie ISIN", ...), prüft beim Artikeltyp nur den Anfangsbuchstaben und mappt die Ziellänge über die Dropdown-Labels. Das Review-Sheet hat 23 Spalten in PascalCase (RunID, ErstelltAm, Status, ..., Fehler), Status-Werte exakt BEREIT / REVIEW_NOETIG / FEHLER, auch FEHLER-Zeilen tragen die RunID. `baueIntakePayload()` in `app/api/briefing/route.ts` und `normalisiereZeile()` in `app/api/feed/route.ts` sind die beiden Übersetzungsstellen; ändert sich der Workflow, nur dort anpassen.
-- `StatusBadge` in `components/feed/status-badge.tsx` ist die geteilte Statusanzeige (Mapping REVIEW_NOETIG auf Anzeige "REVIEW NÖTIG"), auch für den Lauf-Modus in Phase 5 verwenden.
+- n8n-Vertrag (aus den Workflow-Exporten im Root abgeleitet): Der Artikel-Workflow liest die Eingabe über die deutschen Form-Labels ("Thema / Auslöser", "Hauptaktie ISIN", ...), prüft beim Artikeltyp nur den Anfangsbuchstaben und mappt die Ziellänge über die Dropdown-Labels. Das Review-Sheet hat 23 Spalten in PascalCase (RunID, ErstelltAm, Status, ..., TextHTML, ..., Fehler) plus die neue Spalte `Online`, Status-Werte exakt BEREIT / REVIEW_NOETIG / FEHLER, auch FEHLER-Zeilen tragen die RunID. Der Feed-Workflow ("My workflow") mappt in seiner Code-Node selbst schon auf camelCase (`runId: String(z.RunID ?? "")` usw.); `textHtml` und `online` müssen dort als Zeilen ergänzt sein, sonst fallen sie im Frontend auf ""/false. Übersetzungsstellen im Frontend: `baueIntakePayload()` in `app/api/briefing/route.ts`, `normalisiereZeile()` in `app/api/feed/route.ts` (fängt auch rohes PascalCase ab), `app/api/online/route.ts` (reicht `{ runId, online }` an `N8N_ONLINE_URL` durch); ändert sich der Workflow, nur dort anpassen.
+- `StatusBadge` in `components/feed/status-badge.tsx` ist die geteilte Statusanzeige (Mapping REVIEW_NOETIG auf Anzeige "REVIEW NÖTIG"); das Record `STATUS_ANZEIGE` ist exportiert und auch die einzige Quelle für Status-Strings in Toasts und Filter-Chips.
 - SWR: den Key "/api/feed" in Phase 5 wiederverwenden (geteilter Cache und `mutate`, abweichendes `refreshInterval` je Hook erlaubt, Lauf-Modus pollt alle 20 s). Das Feed-Polling läuft auch weiter, während der Briefing-Tab aktiv ist (SWR pausiert nur bei verstecktem Browser-Tab), das ist gewollt: Daten sind beim Tab-Wechsel warm.
 - `GET /api/feed` hat `export const dynamic = "force-dynamic"` als expliziten Guard (seit Next 15 ohnehin Default für GET-Handler). Upstream-Zeilen validiert `feedItemSchema` (zod `.catch("")` für Textfelder), ungültige Zeilen werden still verworfen statt den Feed zu blockieren.
 - `npm run build` niemals parallel zum laufenden Dev-Server ausführen, beide teilen sich `.next` und der Build zerschießt die Dev-Artefakte (danach Dev-Server neu starten).
+- Artikel-Anzeige: `ArtikelInhalt` in `feed-drawer.tsx` rendert `textHtml` per `dangerouslySetInnerHTML` (einzige Stelle mit Fremd-HTML im DOM, Quelle ist der eigene Workflow, bewusst kein Sanitizer). Typografie über die Klasse `.artikel-inhalt` in `globals.css` (`@layer components`), kein @tailwindcss/typography. Bandbreite: `textHtml` kommt aktuell für alle Feed-Zeilen mit, bei wenigen Zeilen okay; wächst das Sheet spürbar, auf Detail-Abruf je RunID umstellen (eigene Route plus n8n-Webhook, bewusst noch nicht gebaut).
+- Relativzeit in der Liste braucht den Minuten-Ticker in `feed-liste.tsx`: SWR hält bei unverändertem Feed die data-Referenz stabil (deep-equal), ohne eigenen Takt frieren die Angaben ein. Der Ticker animiert nichts (stabile Keys).
+- Online-Toggle: optimistisches `mutate` auf den geteilten Key "/api/feed" mit `optimisticData`, `rollbackOnError: true` und `revalidate: false` (Sofort-Revalidate könnte den noch nicht durchgeschriebenen Sheet-Wert zurückliefern und den Haken flackern lassen; der 30-s-Poll konvergiert). Der Drawer hält deshalb nur die RunID und leitet das Item live aus dem Cache ab. Mock-Seite: `setzeMockOnline()` plus globalThis-Registry `__eiStudioMockOnline` in `lib/mock.ts`.
+- Tab-Fade: `data-[state=active]:animate-in fade-in duration-200` auf beiden TabsContent (tw-animate-css). Triggert nur beim data-state-Flip des Tab-Wechsels; Feed-Polls re-rendern nur Kinder und starten die CSS-Animation nicht neu.

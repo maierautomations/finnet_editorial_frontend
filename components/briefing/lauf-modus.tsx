@@ -17,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { StatusBadge } from "@/components/feed/status-badge";
+import { StatusBadge, STATUS_ANZEIGE } from "@/components/feed/status-badge";
 import { cn } from "@/lib/utils";
 
 const SCHRITTE = ["Angenommen", "In Arbeit", "Fertig"] as const;
@@ -30,11 +30,13 @@ export function LaufModus({
   gestartetAm,
   onNeuesBriefing,
   onZumFeed,
+  feedTabAktiv,
 }: {
   runId: string;
   gestartetAm: number;
   onNeuesBriefing: () => void;
   onZumFeed: () => void;
+  feedTabAktiv: boolean;
 }) {
   // Geteilter Cache mit der Feed-Ansicht (gleicher Key), eigenes Polling alle 20 Sekunden
   const { data, error } = useSWR("/api/feed", feedFetcher, { refreshInterval: 20_000 });
@@ -62,6 +64,25 @@ export function LaufModus({
     const intervall = setInterval(() => setJetzt(Date.now()), 1000);
     return () => clearInterval(intervall);
   }, [item]);
+
+  // Fertig-Toast nur, wenn der Redakteur gerade im Feed-Tab steht; im Briefing-Tab
+  // uebernimmt der Ergebnisblock den Erfolgsmoment. Der Ref-Guard markiert die
+  // RunID beim ersten Erscheinen als gesehen, egal in welchem Tab: wer den Moment
+  // hier erlebt hat, bekommt beim spaeteren Tab-Wechsel keinen Nach-Toast.
+  const toastGezeigtFuer = useRef<string | null>(null);
+  useEffect(() => {
+    if (!item) return;
+    if (toastGezeigtFuer.current === item.runId) return;
+    toastGezeigtFuer.current = item.runId;
+    if (!feedTabAktiv) return;
+    if (item.status === "FEHLER") {
+      toast.error(`Lauf fehlgeschlagen: ${item.hauptaktie || "Artikel"}`);
+    } else {
+      toast.success(`Artikel fertig: ${item.hauptaktie}`, {
+        description: `Status: ${STATUS_ANZEIGE[item.status]}`,
+      });
+    }
+  }, [item, feedTabAktiv]);
 
   const aktiverSchritt = item ? SCHRITTE.length : angenommenVorbei ? 1 : 0;
   const verstrichen = Math.max(0, Math.floor((jetzt - gestartetAm) / 1000));

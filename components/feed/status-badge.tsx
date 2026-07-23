@@ -2,9 +2,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { FeedStatus } from "@/lib/schema";
 
-// Geteilte Statusanzeige fuer Liste, Drawer und spaeter den Lauf-Modus (Phase 5).
-// Anzeige exakt nach Vorgabe: der Wert REVIEW_NOETIG erscheint als "REVIEW NÖTIG".
-const ANZEIGE: Record<FeedStatus, string> = {
+// Geteilte Statusanzeige fuer Liste, Drawer und Lauf-Modus. Anzeige exakt nach
+// Vorgabe: der Wert REVIEW_NOETIG erscheint als "REVIEW NÖTIG". Exportiert,
+// damit auch Toasts exakt dieselben Anzeige-Strings verwenden.
+export const STATUS_ANZEIGE: Record<FeedStatus, string> = {
   BEREIT: "BEREIT",
   REVIEW_NOETIG: "REVIEW NÖTIG",
   FEHLER: "FEHLER",
@@ -25,7 +26,7 @@ export function StatusBadge({
 }) {
   return (
     <Badge variant="secondary" className={cn(STIL[status], className)}>
-      {ANZEIGE[status]}
+      {STATUS_ANZEIGE[status]}
     </Badge>
   );
 }

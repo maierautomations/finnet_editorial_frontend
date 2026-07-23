@@ -22,7 +22,14 @@ import { LaufModus } from "@/components/briefing/lauf-modus";
 // nicht in der Shell: die TabsContent sind forceMounted, er ueberlebt den Tab-Wechsel.
 type Lauf = { runId: string; gestartetAm: number };
 
-export function BriefingFormular({ onZumFeed }: { onZumFeed: () => void }) {
+export function BriefingFormular({
+  onZumFeed,
+  feedTabAktiv,
+}: {
+  onZumFeed: () => void;
+  // Fuer den Fertig-Toast im Lauf-Modus: der weiss sonst nicht, welcher Tab aktiv ist
+  feedTabAktiv: boolean;
+}) {
   const [lauf, setLauf] = useState<Lauf | null>(null);
   const form = useForm<BriefingInput, unknown, BriefingDaten>({
     resolver: zodResolver(briefingSchema),
@@ -87,6 +94,7 @@ export function BriefingFormular({ onZumFeed }: { onZumFeed: () => void }) {
         gestartetAm={lauf.gestartetAm}
         onNeuesBriefing={neuesBriefing}
         onZumFeed={onZumFeed}
+        feedTabAktiv={feedTabAktiv}
       />
     );
   }

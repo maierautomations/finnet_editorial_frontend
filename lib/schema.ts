@@ -46,6 +46,10 @@ export type FeedItem = {
   restFindings: string;
   confidence: string;
   fehler: string;
+  // Artikel-HTML aus der Review-Sheet-Spalte TextHTML (GroundStyle: p, ul/li, h2/h3, a)
+  textHtml: string;
+  // Vom Redakteur abgehakt: Beitrag ist im CMS online (Review-Sheet-Spalte Online)
+  online: boolean;
 };
 
 export type FehlerAntwort = { ok: false; fehler: string };
@@ -68,4 +72,24 @@ export const feedItemSchema = z.object({
   restFindings: z.string().catch(""),
   confidence: z.string().catch(""),
   fehler: z.string().catch(""),
+  textHtml: z.string().catch(""),
+  // Das Sheet liefert Strings ("TRUE"/"FALSE"/"", je nach Locale auch "WAHR"),
+  // der Mock echte Booleans; fehlende Spalte (Alt-Zeilen) faellt auf false.
+  online: z
+    .preprocess(
+      (wert) =>
+        typeof wert === "string"
+          ? ["TRUE", "WAHR", "JA", "1"].includes(wert.trim().toUpperCase())
+          : wert,
+      z.boolean()
+    )
+    .catch(false),
 });
+
+// POST /api/online: Redakteur hakt ab, dass ein Beitrag im CMS online ist
+export const onlineAnfrageSchema = z.object({
+  runId: z.string().min(1),
+  online: z.boolean(),
+});
+
+export type OnlineAntwort = { ok: true } | { ok: false; fehler: string };

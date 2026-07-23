@@ -1,12 +1,13 @@
-# EI Studio
+# Finnet Editorial AI
 
 Internes Redaktions-Frontend für finanzen.net. Redakteure schicken Artikel-Briefings an einen bestehenden n8n-Workflow (der recherchiert, schreibt, prüft und den Entwurf in ein Review-Google-Sheet sowie als Draft ins CMS legt) und verfolgen die erzeugten Artikel in einem Feed mit Status und Statistiken. Das Frontend ist reine Eingabe- und Anzeigefläche: es hält keine eigenen Daten, publiziert nichts und bearbeitet keine Artikel.
 
 ## Funktionen
 
 - Briefing-Formular mit Preset-Chips, ISIN-Live-Validierung, Artikeltyp-Karten und eingeklapptem Optionalblock
-- Lauf-Modus nach dem Absenden: kopierbare RunID, Stepper (Angenommen, In Arbeit, Fertig), automatisches Polling bis der Artikel im Feed erscheint
-- Feed mit Stat-Karten (gesamt, diese Woche, Status-Verteilung, Durchschnittslaufzeit), Liste und Detail-Drawer mit allen Feldern
+- Lauf-Modus nach dem Absenden: kopierbare RunID, Stepper (Angenommen, In Arbeit, Fertig), automatisches Polling bis der Artikel im Feed erscheint, Fertig-Toast auch im Feed-Tab
+- Feed mit Stat-Karten (gesamt, diese Woche, Status-Verteilung, Durchschnittslaufzeit), Status-Filter, Textsuche, relativen Zeitangaben und Detail-Drawer mit allen Feldern
+- Drawer mit aufklappbarem Artikel (gerendertes HTML aus dem Review-Sheet), Kopier-Buttons je Feld und Online-Abhaken (schreibt über n8n zurück ins Review-Sheet)
 - Duplikat-Hinweis, wenn zur eingegebenen ISIN heute schon ein Artikel existiert
 - Vollständiger Mock-Betrieb ohne n8n über `USE_MOCK=1`
 
@@ -30,19 +31,20 @@ Alle Variablen sind rein serverseitig und tauchen nie im Client-Bundle auf. Wert
 
 | Variable | Zweck |
 | --- | --- |
-| `USE_MOCK` | `1` = beide API-Routen liefern Mock-Daten aus `lib/mock.ts`, `0` = Proxy zu n8n |
+| `USE_MOCK` | `1` = alle API-Routen liefern Mock-Daten aus `lib/mock.ts`, `0` = Proxy zu n8n |
 | `N8N_BRIEFING_URL` | n8n-Webhook für den Briefing-Intake |
 | `N8N_FEED_URL` | n8n-Webhook, der die Zeilen des Review-Sheets liefert |
-| `EI_TOKEN` | Auth-Token für beide n8n-Webhooks (Header `X-EI-Token`) |
+| `N8N_ONLINE_URL` | n8n-Webhook, der die Spalte Online im Review-Sheet setzt (Abhaken) |
+| `EI_TOKEN` | Auth-Token für alle n8n-Webhooks (Header `X-EI-Token`) |
 | `STUDIO_PASSWORT` | Gemeinsames Redaktions-Passwort (Basic Auth via `middleware.ts`); nicht gesetzt = kein Schutz, lokal leer lassen |
 
 ## Architektur in Kürze
 
-Der Browser spricht ausschließlich mit den eigenen Route Handlern `POST /api/briefing` und `GET /api/feed`, niemals direkt mit n8n. Die Routen validieren mit zod, mappen die Feldnamen auf den n8n-Vertrag, reichen Fehler nie roh durch (immer als verständlicher deutscher Satz) und normalisieren die Spalten des Review-Sheets auf das Frontend-Format. Quelle der Wahrheit ist der Feed, Statistiken berechnet das Frontend selbst aus den Feed-Items.
+Der Browser spricht ausschließlich mit den eigenen Route Handlern `POST /api/briefing`, `GET /api/feed` und `POST /api/online`, niemals direkt mit n8n. Die Routen validieren mit zod, mappen die Feldnamen auf den n8n-Vertrag, reichen Fehler nie roh durch (immer als verständlicher deutscher Satz) und normalisieren die Spalten des Review-Sheets auf das Frontend-Format. Quelle der Wahrheit ist der Feed, Statistiken berechnet das Frontend selbst aus den Feed-Items.
 
 ## Deployment
 
-Läuft auf Vercel (Projekt `finnet-editorial-frontend`). Das Repo ist mit Vercel verbunden: **jeder Push auf `main` deployt automatisch nach Production.** Die fünf Umgebungsvariablen sind in den Vercel-Project-Settings gepflegt, der Zugriff ist über `STUDIO_PASSWORT` (Basic Auth) geschützt.
+Läuft auf Vercel (Projekt `finnet-editorial-frontend`). Das Repo ist mit Vercel verbunden: **jeder Push auf `main` deployt automatisch nach Production.** Die Umgebungsvariablen sind in den Vercel-Project-Settings gepflegt, der Zugriff ist über `STUDIO_PASSWORT` (Basic Auth) geschützt.
 
 ## Hinweis für KI-Sessions
 

@@ -1,6 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { CircleCheck } from "lucide-react";
+
 import { Card } from "@/components/ui/card";
 import type { FeedItem } from "@/lib/schema";
-import { formatiereFeedZeit } from "@/lib/feed-berechnungen";
+import { formatiereRelativeZeit } from "@/lib/feed-berechnungen";
 import { StatusBadge } from "@/components/feed/status-badge";
 
 export function FeedListe({
@@ -10,6 +15,16 @@ export function FeedListe({
   items: FeedItem[];
   onAuswahl: (item: FeedItem) => void;
 }) {
+  // Minuten-Ticker fuer die Relativzeiten: SWR haelt bei unveraendertem Feed die
+  // data-Referenz stabil (deep-equal im Cache), ohne eigenen Takt wuerden die
+  // Angaben einfrieren. Ein Re-Render pro Minute ist billig, dabei animiert
+  // nichts (stabile Keys, keine Enter-Animationen).
+  const [jetzt, setJetzt] = useState(() => new Date());
+  useEffect(() => {
+    const intervall = setInterval(() => setJetzt(new Date()), 60_000);
+    return () => clearInterval(intervall);
+  }, []);
+
   return (
     <Card className="rounded-2xl py-0">
       <ul className="divide-y divide-border">
@@ -29,12 +44,19 @@ export function FeedListe({
                     {item.title || "ohne Titel"}
                   </span>
                 </span>
-                <span className="block font-mono text-xs text-muted-foreground">
+                <span className="hidden font-mono text-xs text-muted-foreground sm:block">
                   {item.runId.slice(0, 15)}
                 </span>
               </span>
-              <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                {formatiereFeedZeit(item.erstelltAm)}
+              <span className="flex shrink-0 items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                {item.online && (
+                  <CircleCheck
+                    role="img"
+                    aria-label="Im CMS online"
+                    className="size-3.5 shrink-0 text-status-bereit"
+                  />
+                )}
+                {formatiereRelativeZeit(item.erstelltAm, jetzt)}
               </span>
             </button>
           </li>

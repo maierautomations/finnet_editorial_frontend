@@ -22,7 +22,7 @@ function sortiereNeuesteZuerst(items: FeedItem[]): FeedItem[] {
 // Zeilen aus dem Review-Sheet tragen die Spaltennamen des Sheets (RunID, ErstelltAm, ...).
 // Vor der Validierung auf die FeedItem-Schluessel abbilden; Zeilen, die schon camelCase
 // sind (etwa ueber eine Code-Node in n8n vorgemappt), laufen unveraendert durch. Unbekannte
-// Schluessel wie TextHTML oder row_number entfernt feedItemSchema beim Parsen.
+// Schluessel wie row_number entfernt feedItemSchema beim Parsen.
 const SPALTEN_ZUORDNUNG: Record<string, string> = {
   RunID: "runId",
   ErstelltAm: "erstelltAm",
@@ -37,6 +37,8 @@ const SPALTEN_ZUORDNUNG: Record<string, string> = {
   RestFindings: "restFindings",
   Confidence: "confidence",
   Fehler: "fehler",
+  TextHTML: "textHtml",
+  Online: "online",
 };
 
 function normalisiereZeile(roh: unknown): unknown {

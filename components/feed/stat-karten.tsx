@@ -23,9 +23,11 @@ function StatKarte({
   return (
     <Card className="rounded-2xl">
       <CardContent className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">{label}</p>
-          {icon}
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60">
+            {icon}
+          </div>
         </div>
         {children}
       </CardContent>
@@ -37,7 +39,7 @@ export function StatKarten({ items }: { items: FeedItem[] }) {
   const stats = berechneFeedStats(items);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 min-[420px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
       <StatKarte label="Gesamt" icon={<Newspaper className="size-4 text-muted-foreground" aria-hidden />}>
         <p className="text-2xl font-semibold tabular-nums">{stats.gesamt}</p>
         <p className="text-xs text-muted-foreground">Artikel im Feed</p>

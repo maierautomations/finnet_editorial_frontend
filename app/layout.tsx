@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EI Studio",
-  description: "Redaktions-Frontend für den CMS-Artikel-Workflow von finanzen.net",
+  title: "Finnet Editorial AI",
+  description: "Finnet Editorial AI, Redaktions-Frontend für den CMS-Artikel-Workflow von finanzen.net",
 };
 
 export default function RootLayout({

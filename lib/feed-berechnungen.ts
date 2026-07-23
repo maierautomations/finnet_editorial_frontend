@@ -45,6 +45,11 @@ const RUNID_ZEIT = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/;
 // ueber die Sommerzeit-Umstellung, akzeptiertes Restrisiko zwei Naechte pro Jahr).
 const MAX_LAUFZEIT_SEKUNDEN = 21_600;
 
+// Unter 30 Sekunden gilt als unplausibel: ein echter Lauf braucht Minuten. Alt-Zeilen
+// im Review-Sheet von vor dem ErstelltAm-Fix im n8n-Workflow tragen die Startzeit als
+// ErstelltAm (Laufzeit 0 s) und wuerden den Durchschnitt druecken.
+const MIN_LAUFZEIT_SEKUNDEN = 30;
+
 export function laufzeitSekunden(runId: string, erstelltAm: string): number | null {
   const treffer = RUNID_ZEIT.exec(runId);
   if (!treffer) return null;
@@ -63,7 +68,7 @@ export function laufzeitSekunden(runId: string, erstelltAm: string): number | nu
   const endeWand = Date.UTC(+t.year, +t.month - 1, +t.day, +t.hour, +t.minute, +t.second);
 
   const sekunden = Math.round((endeWand - startWand) / 1000);
-  if (sekunden < 0 || sekunden > MAX_LAUFZEIT_SEKUNDEN) return null;
+  if (sekunden < MIN_LAUFZEIT_SEKUNDEN || sekunden > MAX_LAUFZEIT_SEKUNDEN) return null;
   return sekunden;
 }
 
@@ -140,4 +145,18 @@ export function formatiereZeitpunkt(erstelltAm: string): string {
   if (Number.isNaN(zeitpunkt.getTime())) return "keine Angabe";
   const t = berlinerZeitTeile(zeitpunkt);
   return `${t.day}.${t.month}.${t.year}, ${t.hour}:${t.minute} Uhr`;
+}
+
+// Relativzeit fuer die Feed-Liste. Bewusst echte Instant-Differenz (Date-Millis),
+// nicht die Berliner Wanduhr-Achse: die braucht nur der RunID-Vergleich in
+// laufzeitSekunden, eine Differenz zweier Instants ist zeitzonenunabhaengig.
+export function formatiereRelativeZeit(erstelltAm: string, jetzt: Date = new Date()): string {
+  const zeitpunkt = new Date(erstelltAm);
+  if (Number.isNaN(zeitpunkt.getTime())) return "keine Angabe";
+  const diffSekunden = Math.floor((jetzt.getTime() - zeitpunkt.getTime()) / 1000);
+  // Faengt auch leichte Uhrenabweichungen in die Zukunft ab
+  if (diffSekunden < 60) return "gerade eben";
+  if (diffSekunden < 3600) return `vor ${Math.floor(diffSekunden / 60)} min`;
+  if (diffSekunden < 86_400) return `vor ${Math.floor(diffSekunden / 3600)} Std`;
+  return formatiereFeedZeit(erstelltAm, jetzt);
 }

@@ -28,7 +28,7 @@ export function middleware(request: NextRequest) {
 
   return new NextResponse("Zugriff nur mit Redaktions-Passwort", {
     status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="EI Studio"' },
+    headers: { "WWW-Authenticate": 'Basic realm="Finnet Editorial AI"' },
   });
 }
 

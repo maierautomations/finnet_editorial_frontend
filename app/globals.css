@@ -140,3 +140,48 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  /* Typografie fuer das Artikel-HTML im Drawer (GroundStyle: p, ul/li, h2/h3, a, strong).
+     Explizite Margins sind noetig, weil Preflight alle Element-Margins nullt. */
+  .artikel-inhalt {
+    @apply text-sm leading-relaxed break-words text-foreground;
+  }
+  .artikel-inhalt p {
+    @apply my-3;
+  }
+  .artikel-inhalt > :first-child {
+    @apply mt-0;
+  }
+  .artikel-inhalt > :last-child {
+    @apply mb-0;
+  }
+  .artikel-inhalt h2 {
+    @apply mt-5 mb-2 text-base font-semibold;
+  }
+  .artikel-inhalt h3 {
+    @apply mt-4 mb-1.5 text-sm font-semibold;
+  }
+  .artikel-inhalt ul {
+    @apply my-3 list-disc pl-5;
+  }
+  .artikel-inhalt ol {
+    @apply my-3 list-decimal pl-5;
+  }
+  .artikel-inhalt li {
+    @apply my-1;
+  }
+  .artikel-inhalt li::marker {
+    color: var(--muted-foreground);
+  }
+  .artikel-inhalt a {
+    @apply text-primary underline underline-offset-2;
+  }
+  .artikel-inhalt a:hover {
+    @apply text-primary/80;
+  }
+  .artikel-inhalt b,
+  .artikel-inhalt strong {
+    @apply font-semibold;
+  }
+}
