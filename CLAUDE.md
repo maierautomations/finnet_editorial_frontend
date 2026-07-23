@@ -129,15 +129,13 @@ Erledigt (Phasen 0 bis 6):
 
 `npm run build` und `npx eslint .` laufen fehlerfrei, alles funktioniert mit `USE_MOCK=1` ohne Netzwerkzugriff auf n8n.
 
-Offen ist nur noch die n8n-Seite plus Live-Test (das Frontend ist fertig):
+- Phase 7, n8n-Seite und Live-Test: alle Workflow-Anpassungen umgesetzt (Intake-Webhook POST mit Header-Auth `X-EI-Token` und Respond Immediately, Unwrap-Code-Node vor "Briefing validieren", runId-Übernahme aus dem Payload via `g('runId')`, ErstelltAm als Abschlusszeit in Review- und Fehlerzeile, Feed-Workflow als Webhook → Get Rows → Code-Mapping → Respond mit All Incoming Items, beide Workflows aktiv). Live-End-to-End-Test am 23. Juli 2026 erfolgreich: Briefing über die App abgesendet, n8n-Lauf 5 Minuten 11 Sekunden, Item erschien mit der Frontend-RunID als REVIEW_NOETIG mit allen Feldern an Position 0. `USE_MOCK=0` ist seither der lokale Stand in `.env.local`.
+- Phase 8, Deployment: live auf Vercel. Projekt `finnet-editorial-frontend` (Team maierautomations-projects, Hobby-Plan), Production-URL https://finnet-editorial-frontend.vercel.app, fünf Env-Variablen in Production gesetzt (`USE_MOCK=0`, `EI_TOKEN`, `N8N_BRIEFING_URL`, `N8N_FEED_URL`, `STUDIO_PASSWORT`; der Passwort-Wert steht nur in den Vercel-Env-Settings, bewusst nicht im Repo). Smoke-Test verifiziert: 401 ohne Passwort auf Seite und API, 200 mit Passwort, echter Feed. Code liegt im privaten GitHub-Repo https://github.com/maierautomations/finnet_editorial_frontend.
 
-1. Intake-Webhook (großer Workflow): HTTP Method auf POST stellen (n8n-Standard ist GET), "Respond Immediately" ist richtig. Der Wert im Header-Auth-Credential muss exakt `EI_TOKEN` aus `.env.local` entsprechen (kleines b am Anfang, zeichengenau).
-2. Zwischen Webhook und "Briefing validieren" eine Code-Node einfügen: `return [{ json: $json.body ?? $json }];` (Webhook-Payloads liegen unter `body`, Formular-Submissions bleiben kompatibel).
-3. In "Briefing validieren" die runId-Zeile ersetzen durch: `const runId = g('runId') || (heuteIso.replace(/-/g, '') + '-' + uhr.replace(/:/g, '') + '-' + (hauptIsin || 'OHNE'));` (die Frontend-RunID muss gewinnen, sonst findet der Lauf-Modus das Item nie).
-4. In "Review-Zeile bauen" und "Fehlerzeile bauen" `ErstelltAm` auf `new Date().toISOString()` setzen (Abschlusszeit statt Startzeit, sonst ist die Laufzeit-Statistik immer 0 Sekunden).
-5. Feed-Workflow: Webhook-Respond auf "Using 'Respond to Webhook' Node" umstellen (mit "Respond Immediately" kommen nie Daten zurück), dann Google Sheets "Get Row(s)" mit aktivierter Option "Always Output Data", danach Respond to Webhook mit "All Incoming Items". Eine Code-Node zum Vorab-Mapping ist optional (die Feed-Route mappt selbst), spart aber Bandbreite, weil TextHTML dann nicht mitgeschickt wird.
-6. Beide Workflows aktivieren (Production-URLs), `USE_MOCK=0` in `.env.local` setzen, Dev-Server neu starten, Live-End-to-End-Test: Briefing absenden, Lauf-Modus bis Fertig, Feed, Stats und Duplikat-Hinweis mit echten Daten prüfen. Danach Projektstand hier final aktualisieren. (Feed-Workflow ist bereits live und per curl verifiziert, liefert camelCase-Zeilen ohne TextHTML.)
-7. Deployment (Phase 8, nach dem Live-Test): privates GitHub-Repo anlegen und pushen (`gh auth login` muss der User einmal selbst machen), in Vercel importieren, Env-Variablen setzen: `USE_MOCK=0`, `EI_TOKEN`, `N8N_BRIEFING_URL`, `N8N_FEED_URL`, `STUDIO_PASSWORT`. Zugriffsschutz liegt in `middleware.ts` (Basic Auth, siehe Technische Notizen).
+Offen:
+
+- GitHub-Integration mit dem Vercel-Projekt verbinden für Auto-Deploy bei jedem Push: im Vercel-Dashboard Project Settings → Git → Connect Git Repository, dabei die Vercel-GitHub-App installieren (`vercel git connect` per CLI scheiterte genau daran). Bis dahin deployt man per `npx vercel deploy --prod --token <Vercel-Token>` aus dem Projektordner.
+- Optional: eigene Domain, Übergabe an internes Hosting der finanzen.net-IT, Rotation von EI_TOKEN und Vercel-Token bei Bedarf.
 
 ### Technische Notizen für Folge-Sessions
 
